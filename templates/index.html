@@ -103,9 +103,11 @@
             <a href="{{ url_for('view', id=q.id) }}" class="btn btn-sm btn-outline-info">
               <i class="bi bi-eye me-1"></i>View
             </a>
+            {% if session.get('logged_in') %}
             <a href="{{ url_for('edit', id=q.id) }}" class="btn btn-sm btn-outline-secondary">
               <i class="bi bi-pencil me-1"></i>Edit
             </a>
+            {% endif %}
             <button class="btn btn-sm btn-outline-secondary btn-copy ms-auto"
                     onclick="copyToClipboard({{ q.sql | tojson }}, this)">
               <i class="bi bi-clipboard me-1"></i>Copy SQL

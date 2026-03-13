@@ -1,8 +1,22 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from rapidfuzz import fuzz
+from functools import wraps
+
+ADMIN_USERNAME = "ssswapnil250"
+ADMIN_PASSWORD = "Sharvari123@"
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            flash("Please log in to perform that action.", "warning")
+            return redirect(url_for("login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
@@ -207,6 +221,7 @@ def view(id):
 
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
+@login_required
 def edit(id):
     q = Query.query.get_or_404(id)
 
@@ -237,6 +252,7 @@ def edit(id):
 
 
 @app.route("/delete/<int:id>", methods=["POST"])
+@login_required
 def delete(id):
     q = Query.query.get_or_404(id)
     db.session.delete(q)
@@ -402,6 +418,25 @@ def import_queries():
         return redirect(url_for("index"))
 
     return render_template("import.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session["logged_in"] = True
+            next_url = request.args.get("next") or url_for("index")
+            return redirect(next_url)
+        flash("Invalid username or password.", "danger")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
 
 
 if __name__ == "__main__":

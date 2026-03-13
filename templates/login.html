@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Login – SQL Vault{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-sm-8 col-md-5 col-lg-4">
+    <div class="card mt-5">
+      <div class="card-body p-4">
+        <h5 class="mb-4 text-center">
+          <i class="bi bi-lock-fill me-2 text-info"></i>Admin Login
+        </h5>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">USERNAME</label>
+            <input type="text" name="username" class="form-control" autofocus autocomplete="username" required/>
+          </div>
+          <div class="mb-4">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">PASSWORD</label>
+            <input type="password" name="password" class="form-control" autocomplete="current-password" required/>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Login
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
