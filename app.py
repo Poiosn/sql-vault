@@ -129,11 +129,14 @@ def index():
     if tag:
         query = query.filter(Query.tags.ilike(f"%{tag}%"))
 
+    page = request.args.get("page", 1, type=int)
+    per_page = 50
+
     if state_id:
         sid = int(state_id)
         state_name_str = STATES.get(sid, "")
         candidates = query.order_by(Query.created_at.desc()).all()
-        queries = [
+        filtered = [
             q for q in candidates
             if q.state_id == sid
             or fuzzy_state_match(
@@ -141,8 +144,15 @@ def index():
                 state_name_str,
             )
         ]
+        total = len(filtered)
+        start = (page - 1) * per_page
+        queries = filtered[start:start + per_page]
+        total_pages = (total + per_page - 1) // per_page
     else:
-        queries = query.order_by(Query.created_at.desc()).all()
+        pagination = query.order_by(Query.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        queries = pagination.items
+        total = pagination.total
+        total_pages = pagination.pages
 
     # Collect all unique tags for the sidebar
     all_queries = Query.query.all()
@@ -160,6 +170,9 @@ def index():
         all_tags=all_tags,
         states=STATES_LIST,
         selected_state_id=int(state_id) if state_id else None,
+        page=page,
+        total_pages=total_pages,
+        total=total,
     )
 
 
