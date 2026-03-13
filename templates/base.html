@@ -55,6 +55,9 @@
     .form-control:focus { border-color: #1f6feb; box-shadow: 0 0 0 3px #1f6feb22; }
     .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
     .empty-state i { font-size: 3rem; margin-bottom: 12px; display: block; }
+    .query-masonry { columns: 1; column-gap: 1rem; }
+    @media (min-width: 1200px) { .query-masonry { columns: 2; } }
+    .query-item { break-inside: avoid; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
