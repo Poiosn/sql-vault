@@ -84,7 +84,7 @@
             <div class="meta-text mb-2">{{ q.description[:120] }}{% if q.description|length > 120 %}…{% endif %}</div>
             {% endif %}
 
-            <div class="sql-preview">{{ q.sql[:200] }}{% if q.sql|length > 200 %}…{% endif %}</div>
+            <div class="sql-preview">{{ q.sql }}</div>
 
             <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
               {% if q.state_name() %}
