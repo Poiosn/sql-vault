@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Import Queries – SQL Vault{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8 col-xl-7">
+
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back
+      </a>
+      <h5 class="mb-0 ms-2">Bulk Import Queries</h5>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">
+              UPLOAD .TXT FILE <span class="text-danger">*</span>
+            </label>
+            <input type="file" name="file" accept=".txt" class="form-control" required/>
+          </div>
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-upload me-1"></i>Import
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Format reference -->
+    <div class="card">
+      <div class="card-header" style="background:#0d1117; border-bottom:1px solid #30363d;">
+        <span class="meta-text"><i class="bi bi-info-circle me-1"></i>Supported File Formats (auto-detected)</span>
+      </div>
+      <div class="card-body" style="font-size:0.85rem; color:#8b949e;">
+
+        <p class="mb-1 fw-semibold" style="color:#e6edf3;">Format 1 — SQL comment header <span class="tag-badge ms-1">auto-detected</span></p>
+        <p class="mb-2">Each query starts with a <code>--</code> comment line as the title, followed directly by the SQL. The state is auto-detected from the title.</p>
+        <pre style="background:#0d1117; border:1px solid #21262d; border-radius:6px; padding:14px; font-size:0.8rem; color:#79c0ff; white-space:pre-wrap;">--Kerala Children 3y to 6y school going data January 2026
+select state_name, district_name, ...
+from prod_pt_awc_2026_01 pa
+where s.id = 18;
+
+--Maharashtra Active Beneficiaries Report
+select * from beneficiaries where state_id = 1;</pre>
+
+        <hr style="border-color:#21262d;"/>
+
+        <p class="mb-1 fw-semibold" style="color:#e6edf3;">Format 2 — Key/value blocks</p>
+        <p class="mb-2">Blocks separated by <code>---</code>. <code>Title:</code> and <code>SQL:</code> are required.</p>
+        <pre style="background:#0d1117; border:1px solid #21262d; border-radius:6px; padding:14px; font-size:0.8rem; color:#79c0ff; white-space:pre-wrap;">Title: Get active users
+Description: Fetches users active in the last 30 days
+Tags: analytics, users
+State: Maharashtra
+SQL:
+SELECT * FROM users WHERE last_active > NOW() - INTERVAL '30 days';
+---
+Title: Revenue by month
+Tags: finance
+SQL:
+SELECT DATE_TRUNC('month', created_at), SUM(amount) FROM orders GROUP BY 1;</pre>
+
+        <p class="mt-3 mb-0" style="font-size:0.78rem;">
+          <i class="bi bi-magic me-1"></i>State names are fuzzy-matched automatically in both formats — misspellings like "Kerela" or "Maharastra" are handled.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -30,20 +30,28 @@
   <!-- Main content -->
   <div class="col-12 col-md-9 col-lg-10">
     <!-- Search bar -->
-    <form method="get" class="search-bar mb-3 d-flex gap-2">
+    <form method="get" class="search-bar mb-3">
       <input type="hidden" name="tag" value="{{ tag }}"/>
-      <input type="text" name="q" value="{{ search }}"
-             class="form-control"
-             placeholder="Search by title, SQL, tags, description…"
-             autofocus/>
-      <button class="btn btn-outline-info px-3" type="submit">
-        <i class="bi bi-search"></i>
-      </button>
-      {% if search or tag %}
-      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-x-lg"></i>
-      </a>
-      {% endif %}
+      <div class="d-flex gap-2 mb-2">
+        <input type="text" name="q" value="{{ search }}"
+               class="form-control"
+               placeholder="Search by title, SQL, tags, description…"
+               autofocus/>
+        <button class="btn btn-outline-info px-3" type="submit">
+          <i class="bi bi-search"></i>
+        </button>
+        {% if search or tag or selected_state_id %}
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </div>
+      <select name="state_id" class="form-select form-select-sm" style="background:#0d1117; color:#e6edf3; border-color:#30363d; max-width:320px;" onchange="this.form.submit()">
+        <option value="">— All States —</option>
+        {% for sid, sname in states %}
+        <option value="{{ sid }}" {% if selected_state_id == sid %}selected{% endif %}>{{ sname }}</option>
+        {% endfor %}
+      </select>
     </form>
 
     <!-- Results count -->
@@ -51,6 +59,7 @@
       {{ queries|length }} quer{{ 'y' if queries|length == 1 else 'ies' }}
       {% if search %} matching "<strong>{{ search }}</strong>"{% endif %}
       {% if tag %} tagged <span class="tag-badge">{{ tag }}</span>{% endif %}
+      {% if selected_state_id %} in <strong>{{ states | selectattr('0', 'equalto', selected_state_id) | map(attribute='1') | first }}</strong>{% endif %}
     </div>
 
     <!-- Query cards -->
@@ -77,13 +86,17 @@
 
             <div class="sql-preview">{{ q.sql[:200] }}{% if q.sql|length > 200 %}…{% endif %}</div>
 
-            {% if q.tag_list() %}
-            <div class="mt-2 d-flex flex-wrap gap-1">
+            <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
+              {% if q.state_name() %}
+              <a href="{{ url_for('index', state_id=q.state_id) }}"
+                 class="tag-badge" style="background:#0d419d22; border-color:#0d419d88; color:#79c0ff;">
+                <i class="bi bi-geo-alt-fill me-1"></i>{{ q.state_name() }}
+              </a>
+              {% endif %}
               {% for t in q.tag_list() %}
               <a href="{{ url_for('index', tag=t) }}" class="tag-badge">{{ t }}</a>
               {% endfor %}
             </div>
-            {% endif %}
           </div>
           <div class="card-footer d-flex gap-2" style="background:transparent; border-top:1px solid #21262d;">
             <a href="{{ url_for('view', id=q.id) }}" class="btn btn-sm btn-outline-info">

@@ -34,8 +34,14 @@
         <p class="text-secondary mb-3" style="font-size:0.92rem;">{{ q.description }}</p>
         {% endif %}
 
-        {% if q.tag_list() %}
+        {% if q.state_name() or q.tag_list() %}
         <div class="d-flex flex-wrap gap-2 mb-3">
+          {% if q.state_name() %}
+          <a href="{{ url_for('index', state_id=q.state_id) }}"
+             class="tag-badge" style="background:#0d419d22; border-color:#0d419d88; color:#79c0ff;">
+            <i class="bi bi-geo-alt-fill me-1"></i>{{ q.state_name() }}
+          </a>
+          {% endif %}
           {% for t in q.tag_list() %}
           <a href="{{ url_for('index', tag=t) }}" class="tag-badge">{{ t }}</a>
           {% endfor %}

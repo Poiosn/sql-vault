@@ -41,6 +41,19 @@
                    placeholder="What does this query do? (optional)"/>
           </div>
 
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">STATE</label>
+            <select name="state_id" class="form-select">
+              <option value="">— None —</option>
+              {% for sid, sname in states %}
+              <option value="{{ sid }}"
+                {% if form.get('state_id') | string == sid | string %}selected{% endif %}>
+                {{ sname }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
           <div class="mb-4">
             <label class="form-label text-secondary" style="font-size:0.82rem;">TAGS</label>
             <input type="text" name="tags" class="form-control"
