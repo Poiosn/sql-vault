@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{% if edit %}Edit Query{% else %}New Query{% endif %} – SQL Vault{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9 col-xl-8">
+
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back
+      </a>
+      <h5 class="mb-0 ms-2">
+        {% if edit %}Edit Query{% else %}New Query{% endif %}
+      </h5>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post"
+              action="{{ url_for('edit', id=id) if edit else url_for('add') }}">
+
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">TITLE <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   value="{{ form.get('title', '') }}"
+                   placeholder="e.g. Get active users last 30 days"
+                   required/>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">SQL QUERY <span class="text-danger">*</span></label>
+            <textarea name="sql" class="form-control sql-editor"
+                      placeholder="SELECT * FROM users WHERE ..."
+                      required>{{ form.get('sql', '') }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">DESCRIPTION</label>
+            <input type="text" name="description" class="form-control"
+                   value="{{ form.get('description', '') }}"
+                   placeholder="What does this query do? (optional)"/>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label text-secondary" style="font-size:0.82rem;">TAGS</label>
+            <input type="text" name="tags" class="form-control"
+                   value="{{ form.get('tags', '') }}"
+                   placeholder="e.g. analytics, reporting, users  (comma separated)"/>
+            <div class="form-text" style="font-size:0.75rem; color:#8b949e;">
+              Separate multiple tags with commas
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-floppy me-1"></i>
+              {% if edit %}Save Changes{% else %}Save Query{% endif %}
+            </button>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Auto-resize SQL textarea
+  const ta = document.querySelector('textarea[name="sql"]');
+  function resize() { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  ta.addEventListener('input', resize);
+  resize();
+</script>
+{% endblock %}

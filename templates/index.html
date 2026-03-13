@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}SQL Vault – All Queries{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <!-- Sidebar -->
+  <div class="col-12 col-md-3 col-lg-2">
+    <div class="card p-3 mb-3 sticky-top" style="top:16px;">
+      <div class="mb-2" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#8b949e;">
+        <i class="bi bi-tags-fill me-1"></i> Tags
+      </div>
+      <div class="sidebar-tags">
+        <a href="{{ url_for('index', q=search) }}"
+           class="tag-badge {% if not tag %}active{% endif %}">
+          All
+        </a>
+        {% for t in all_tags %}
+        <a href="{{ url_for('index', tag=t, q=search) }}"
+           class="tag-badge {% if tag == t %}active{% endif %}">
+          {{ t }}
+        </a>
+        {% endfor %}
+        {% if not all_tags %}
+        <span style="font-size:0.78rem; color:#8b949e;">No tags yet</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="col-12 col-md-9 col-lg-10">
+    <!-- Search bar -->
+    <form method="get" class="search-bar mb-3 d-flex gap-2">
+      <input type="hidden" name="tag" value="{{ tag }}"/>
+      <input type="text" name="q" value="{{ search }}"
+             class="form-control"
+             placeholder="Search by title, SQL, tags, description…"
+             autofocus/>
+      <button class="btn btn-outline-info px-3" type="submit">
+        <i class="bi bi-search"></i>
+      </button>
+      {% if search or tag %}
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-x-lg"></i>
+      </a>
+      {% endif %}
+    </form>
+
+    <!-- Results count -->
+    <div class="meta-text mb-3">
+      {{ queries|length }} quer{{ 'y' if queries|length == 1 else 'ies' }}
+      {% if search %} matching "<strong>{{ search }}</strong>"{% endif %}
+      {% if tag %} tagged <span class="tag-badge">{{ tag }}</span>{% endif %}
+    </div>
+
+    <!-- Query cards -->
+    {% if queries %}
+    <div class="row g-3">
+      {% for q in queries %}
+      <div class="col-12 col-xl-6">
+        <div class="card query-card h-100">
+          <div class="card-body pb-2">
+            <div class="d-flex justify-content-between align-items-start mb-1">
+              <a href="{{ url_for('view', id=q.id) }}"
+                 class="text-decoration-none text-white fw-semibold"
+                 style="font-size:0.95rem;">
+                {{ q.title }}
+              </a>
+              <span class="meta-text ms-2 text-nowrap">
+                {{ q.created_at.strftime('%d %b %Y') }}
+              </span>
+            </div>
+
+            {% if q.description %}
+            <div class="meta-text mb-2">{{ q.description[:120] }}{% if q.description|length > 120 %}…{% endif %}</div>
+            {% endif %}
+
+            <div class="sql-preview">{{ q.sql[:200] }}{% if q.sql|length > 200 %}…{% endif %}</div>
+
+            {% if q.tag_list() %}
+            <div class="mt-2 d-flex flex-wrap gap-1">
+              {% for t in q.tag_list() %}
+              <a href="{{ url_for('index', tag=t) }}" class="tag-badge">{{ t }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="card-footer d-flex gap-2" style="background:transparent; border-top:1px solid #21262d;">
+            <a href="{{ url_for('view', id=q.id) }}" class="btn btn-sm btn-outline-info">
+              <i class="bi bi-eye me-1"></i>View
+            </a>
+            <a href="{{ url_for('edit', id=q.id) }}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <button class="btn btn-sm btn-outline-secondary btn-copy ms-auto"
+                    onclick="copyToClipboard({{ q.sql | tojson }}, this)">
+              <i class="bi bi-clipboard me-1"></i>Copy SQL
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state card">
+      <i class="bi bi-database-slash"></i>
+      {% if search or tag %}
+        <p class="mb-2">No queries match your search.</p>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-info btn-sm">Clear filters</a>
+      {% else %}
+        <p class="mb-2">No queries saved yet.</p>
+        <a href="{{ url_for('add') }}" class="btn btn-primary btn-sm">
+          <i class="bi bi-plus-lg me-1"></i>Add your first query
+        </a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
