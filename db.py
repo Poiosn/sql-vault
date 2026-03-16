@@ -1,16 +1,41 @@
 """
-Run this script once to create all database tables on Railway (or any environment).
-Usage: python db.py
-Railway will run this automatically via the releaseCommand in railway.toml.
+Creates all database tables. Run via Railway releaseCommand before app starts.
+Usage: python3 db.py
 """
+
+import os
+import sys
+
+# Ensure DATABASE_URL is available
+database_url = os.environ.get("DATABASE_URL", "")
+if not database_url:
+    print("WARNING: DATABASE_URL not set, using SQLite.")
 
 from app import app, db
 
 with app.app_context():
+    # Primary: SQLAlchemy ORM creates all model tables
     db.create_all()
+    print("db.create_all() completed.")
 
-    # Add state_id column to existing databases that predate this field
+    # Fallback: Ensure query table exists via raw SQL (safe on both SQLite and PostgreSQL)
     with db.engine.connect() as conn:
+        conn.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS query (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(200) NOT NULL,
+                sql TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                tags VARCHAR(500) DEFAULT '',
+                state_id INTEGER,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        conn.commit()
+        print("Table 'query' ensured via raw SQL.")
+
+        # Add state_id column to existing databases that predate this field
         try:
             conn.execute(db.text("ALTER TABLE query ADD COLUMN state_id INTEGER"))
             conn.commit()
@@ -18,4 +43,5 @@ with app.app_context():
         except Exception:
             pass  # Column already exists
 
-    print("All tables created successfully.")
+    print("Database setup complete.")
+    sys.exit(0)

@@ -2,7 +2,7 @@
 builder = "NIXPACKS"
 
 [deploy]
-releaseCommand = "python db.py"
+releaseCommand = "python3 db.py"
 startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT"
 healthcheckPath = "/"
 restartPolicyType = "ON_FAILURE"
