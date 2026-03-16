@@ -126,6 +126,11 @@ with app.app_context():
         print(f"WARNING: migration check failed: {e}")
 
 
+@app.route("/health")
+def health():
+    return "OK", 200
+
+
 @app.route("/")
 def index():
     search = request.args.get("q", "").strip()

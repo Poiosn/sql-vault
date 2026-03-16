@@ -4,5 +4,5 @@ builder = "NIXPACKS"
 [deploy]
 releaseCommand = "python3 db.py"
 startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2"
-healthcheckPath = "/"
+healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
