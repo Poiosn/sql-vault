@@ -21,10 +21,10 @@ with app.app_context():
     # Fallback: Ensure query table exists via raw SQL (safe on both SQLite and PostgreSQL)
     with db.engine.connect() as conn:
         conn.execute(db.text("""
-            CREATE TABLE IF NOT EXISTS query (
+            CREATE TABLE IF NOT EXISTS "query" (
                 id SERIAL PRIMARY KEY,
                 title VARCHAR(200) NOT NULL,
-                sql TEXT NOT NULL,
+                "sql" TEXT NOT NULL,
                 description TEXT DEFAULT '',
                 tags VARCHAR(500) DEFAULT '',
                 state_id INTEGER,
