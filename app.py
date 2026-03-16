@@ -111,14 +111,19 @@ class Query(db.Model):
 
 
 with app.app_context():
-    db.create_all()
-    # Add state_id column to existing databases that predate this field
-    with db.engine.connect() as conn:
-        try:
-            conn.execute(db.text("ALTER TABLE query ADD COLUMN state_id INTEGER"))
-            conn.commit()
-        except Exception:
-            pass
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"WARNING: db.create_all() failed: {e}")
+    try:
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(db.text("ALTER TABLE query ADD COLUMN state_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"WARNING: migration check failed: {e}")
 
 
 @app.route("/")
