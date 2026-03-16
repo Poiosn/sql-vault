@@ -21,11 +21,13 @@ def login_required(f):
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
 
-# Use PostgreSQL on Railway if DATABASE_URL is set, else SQLite locally
+# Use database from DATABASE_URL if set, else SQLite locally
 database_url = os.environ.get("DATABASE_URL", "sqlite:///queries.db")
-# Railway uses postgres:// but SQLAlchemy needs postgresql://
+# Fix URL prefixes for SQLAlchemy compatibility
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
+elif database_url.startswith("mysql://"):
+    database_url = database_url.replace("mysql://", "mysql+pymysql://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
