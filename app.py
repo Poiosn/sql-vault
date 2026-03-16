@@ -126,6 +126,8 @@ def index():
     search = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
     state_id = request.args.get("state_id", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
 
     query = Query.query
 
@@ -142,6 +144,19 @@ def index():
 
     if tag:
         query = query.filter(Query.tags.ilike(f"%{tag}%"))
+
+    if date_from:
+        try:
+            query = query.filter(Query.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            query = query.filter(Query.created_at <= dt_to)
+        except ValueError:
+            pass
 
     page = request.args.get("page", 1, type=int)
     per_page = 50
@@ -187,6 +202,8 @@ def index():
         page=page,
         total_pages=total_pages,
         total=total,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 

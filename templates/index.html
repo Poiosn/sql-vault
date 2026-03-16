@@ -40,18 +40,33 @@
         <button class="btn btn-outline-info px-3" type="submit">
           <i class="bi bi-search"></i>
         </button>
-        {% if search or tag or selected_state_id %}
-        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+        {% if search or tag or selected_state_id or date_from or date_to %}
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary" title="Clear all filters">
           <i class="bi bi-x-lg"></i>
         </a>
         {% endif %}
       </div>
-      <select name="state_id" class="form-select form-select-sm" style="background:#0d1117; color:#e6edf3; border-color:#30363d; max-width:320px;" onchange="this.form.submit()">
-        <option value="">— All States —</option>
-        {% for sid, sname in states %}
-        <option value="{{ sid }}" {% if selected_state_id == sid %}selected{% endif %}>{{ sname }}</option>
-        {% endfor %}
-      </select>
+      <div class="d-flex flex-wrap gap-2">
+        <select name="state_id" class="form-select form-select-sm" style="background:#0d1117; color:#e6edf3; border-color:#30363d; max-width:220px;" onchange="this.form.submit()">
+          <option value="">— All States —</option>
+          {% for sid, sname in states %}
+          <option value="{{ sid }}" {% if selected_state_id == sid %}selected{% endif %}>{{ sname }}</option>
+          {% endfor %}
+        </select>
+        <div class="d-flex align-items-center gap-1" style="font-size:0.78rem; color:#8b949e;">
+          <i class="bi bi-calendar3"></i>
+          <input type="date" name="date_from" value="{{ date_from }}"
+                 class="form-control form-control-sm" style="background:#0d1117; color:#e6edf3; border-color:#30363d; max-width:150px;"
+                 title="From date"/>
+          <span>to</span>
+          <input type="date" name="date_to" value="{{ date_to }}"
+                 class="form-control form-control-sm" style="background:#0d1117; color:#e6edf3; border-color:#30363d; max-width:150px;"
+                 title="To date"/>
+          <button type="submit" class="btn btn-sm btn-outline-info px-2" title="Search by date">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </div>
     </form>
 
     <!-- Results count -->
@@ -138,19 +153,19 @@
     <nav class="mt-4">
       <ul class="pagination pagination-sm justify-content-center flex-wrap gap-1" style="--bs-pagination-bg:#161b22; --bs-pagination-border-color:#30363d; --bs-pagination-color:#58a6ff; --bs-pagination-hover-bg:#21262d; --bs-pagination-hover-color:#79c0ff; --bs-pagination-active-bg:#1f6feb; --bs-pagination-active-border-color:#1f6feb; --bs-pagination-disabled-bg:#161b22; --bs-pagination-disabled-color:#8b949e;">
         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-          <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', page=page-1) }}">&laquo;</a>
+          <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', date_from=date_from, date_to=date_to, page=page-1) }}">&laquo;</a>
         </li>
         {% for p in range(1, total_pages + 1) %}
           {% if p == page or p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
           <li class="page-item {% if p == page %}active{% endif %}">
-            <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', page=p) }}">{{ p }}</a>
+            <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', date_from=date_from, date_to=date_to, page=p) }}">{{ p }}</a>
           </li>
           {% elif p == page - 3 or p == page + 3 %}
           <li class="page-item disabled"><span class="page-link">…</span></li>
           {% endif %}
         {% endfor %}
         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-          <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', page=page+1) }}">&raquo;</a>
+          <a class="page-link" href="{{ url_for('index', q=search, tag=tag, state_id=selected_state_id or '', date_from=date_from, date_to=date_to, page=page+1) }}">&raquo;</a>
         </li>
       </ul>
     </nav>
