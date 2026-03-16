@@ -24,7 +24,7 @@ with app.app_context():
             CREATE TABLE IF NOT EXISTS "query" (
                 id SERIAL PRIMARY KEY,
                 title VARCHAR(200) NOT NULL,
-                "sql" TEXT NOT NULL,
+                sql_query TEXT NOT NULL,
                 description TEXT DEFAULT '',
                 tags VARCHAR(500) DEFAULT '',
                 state_id INTEGER,
@@ -35,9 +35,17 @@ with app.app_context():
         conn.commit()
         print("Table 'query' ensured via raw SQL.")
 
+        # Rename sql -> sql_query if old column exists
+        try:
+            conn.execute(db.text('ALTER TABLE "query" RENAME COLUMN "sql" TO sql_query'))
+            conn.commit()
+            print("Renamed column sql -> sql_query.")
+        except Exception:
+            pass  # Already renamed or doesn't exist
+
         # Add state_id column to existing databases that predate this field
         try:
-            conn.execute(db.text("ALTER TABLE query ADD COLUMN state_id INTEGER"))
+            conn.execute(db.text('ALTER TABLE "query" ADD COLUMN state_id INTEGER'))
             conn.commit()
             print("Added state_id column.")
         except Exception:

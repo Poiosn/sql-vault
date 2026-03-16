@@ -29,9 +29,9 @@
 
           <div class="mb-3">
             <label class="form-label text-secondary" style="font-size:0.82rem;">SQL QUERY <span class="text-danger">*</span></label>
-            <textarea name="sql" class="form-control sql-editor"
+            <textarea name="sql_query" class="form-control sql-editor"
                       placeholder="SELECT * FROM users WHERE ..."
-                      required>{{ form.get('sql', '') }}</textarea>
+                      required>{{ form.get('sql_query', '') }}</textarea>
           </div>
 
           <div class="mb-3">
@@ -83,7 +83,7 @@
 {% block scripts %}
 <script>
   // Auto-resize SQL textarea
-  const ta = document.querySelector('textarea[name="sql"]');
+  const ta = document.querySelector('textarea[name="sql_query"]');
   function resize() { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
   ta.addEventListener('input', resize);
   resize();

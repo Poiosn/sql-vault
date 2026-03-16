@@ -100,7 +100,7 @@
             <div class="meta-text mb-2">{{ q.description[:120] }}{% if q.description|length > 120 %}…{% endif %}</div>
             {% endif %}
 
-            <div class="sql-preview">{{ q.sql[:3000] }}{% if q.sql|length > 3000 %}…{% endif %}</div>
+            <div class="sql-preview">{{ q.sql_query[:3000] }}{% if q.sql_query|length > 3000 %}…{% endif %}</div>
 
             <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
               {% if q.state_name() %}
@@ -124,7 +124,7 @@
             </a>
             {% endif %}
             <button class="btn btn-sm btn-outline-secondary btn-copy ms-auto"
-                    onclick="copyToClipboard({{ q.sql | tojson }}, this)">
+                    onclick="copyToClipboard({{ q.sql_query | tojson }}, this)">
               <i class="bi bi-clipboard me-1"></i>Copy SQL
             </button>
           </div>

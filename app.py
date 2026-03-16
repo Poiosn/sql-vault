@@ -94,7 +94,7 @@ def fuzzy_state_match(text, state_name, threshold=78):
 class Query(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
-    sql = db.Column(db.Text, nullable=False)
+    sql_query = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text, default="")
     tags = db.Column(db.String(500), default="")
     state_id = db.Column(db.Integer, nullable=True)
@@ -136,7 +136,7 @@ def index():
         query = query.filter(
             db.or_(
                 Query.title.ilike(like),
-                Query.sql.ilike(like),
+                Query.sql_query.ilike(like),
                 Query.description.ilike(like),
                 Query.tags.ilike(like),
             )
@@ -211,18 +211,18 @@ def index():
 def add():
     if request.method == "POST":
         title = request.form.get("title", "").strip()
-        sql = request.form.get("sql", "").strip()
+        sql_query = request.form.get("sql_query", "").strip()
         description = request.form.get("description", "").strip()
         tags = request.form.get("tags", "").strip()
         state_id = request.form.get("state_id") or None
         if state_id:
             state_id = int(state_id)
 
-        if not title or not sql:
+        if not title or not sql_query:
             flash("Title and SQL are required.", "danger")
             return render_template("add.html", form=request.form, states=STATES_LIST)
 
-        q = Query(title=title, sql=sql, description=description, tags=tags, state_id=state_id)
+        q = Query(title=title, sql_query=sql_query, description=description, tags=tags, state_id=state_id)
         db.session.add(q)
         db.session.commit()
         flash("Query saved successfully!", "success")
@@ -244,14 +244,14 @@ def edit(id):
 
     if request.method == "POST":
         q.title = request.form.get("title", "").strip()
-        q.sql = request.form.get("sql", "").strip()
+        q.sql_query = request.form.get("sql_query", "").strip()
         q.description = request.form.get("description", "").strip()
         q.tags = request.form.get("tags", "").strip()
         state_id = request.form.get("state_id") or None
         q.state_id = int(state_id) if state_id else None
         q.updated_at = datetime.utcnow()
 
-        if not q.title or not q.sql:
+        if not q.title or not q.sql_query:
             flash("Title and SQL are required.", "danger")
             return render_template("add.html", form=request.form, edit=True, id=id, states=STATES_LIST)
 
@@ -261,7 +261,7 @@ def edit(id):
 
     return render_template("add.html", form={
         "title": q.title,
-        "sql": q.sql,
+        "sql_query": q.sql_query,
         "description": q.description,
         "tags": q.tags,
         "state_id": q.state_id,
@@ -345,7 +345,7 @@ def parse_comment_format(text):
             continue
 
         state_id = detect_state_in_title(title)
-        rows.append({"title": title, "sql": sql, "description": "", "tags": "", "state_id": state_id})
+        rows.append({"title": title, "sql_query": sql, "description": "", "tags": "", "state_id": state_id})
 
     return rows, errors
 
@@ -391,7 +391,7 @@ def parse_block_format(text):
 
         rows.append({
             "title": title,
-            "sql": sql,
+            "sql_query": sql,
             "description": meta.get("description", ""),
             "tags": meta.get("tags", ""),
             "state_id": state_id,
