@@ -131,6 +131,19 @@ def health():
     return "OK", 200
 
 
+@app.route("/db-check")
+def db_check():
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute(db.text(
+                "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='query' ORDER BY ordinal_position"
+            ))
+            cols = [f"{r[0]} ({r[1]})" for r in result]
+        return "<br>".join(cols) or "No columns found", 200
+    except Exception as e:
+        return str(e), 500
+
+
 @app.route("/")
 def index():
     search = request.args.get("q", "").strip()
@@ -232,11 +245,16 @@ def add():
             flash("Title and SQL are required.", "danger")
             return render_template("add.html", form=request.form, states=STATES_LIST)
 
-        q = Query(title=title, sql_query=sql_query, description=description, tags=tags, state_id=state_id)
-        db.session.add(q)
-        db.session.commit()
-        flash("Query saved successfully!", "success")
-        return redirect(url_for("view", id=q.id))
+        try:
+            q = Query(title=title, sql_query=sql_query, description=description, tags=tags, state_id=state_id)
+            db.session.add(q)
+            db.session.commit()
+            flash("Query saved successfully!", "success")
+            return redirect(url_for("view", id=q.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Database error: {e}", "danger")
+            return render_template("add.html", form=request.form, states=STATES_LIST)
 
     return render_template("add.html", form={}, states=STATES_LIST)
 
