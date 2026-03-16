@@ -41,17 +41,12 @@
       word-break: break-all;
       color: #79c0ff;
       max-height: 320px;
-      overflow: hidden;
-      position: relative;
+      overflow-y: auto;
     }
-    .sql-preview::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 40px;
-      background: linear-gradient(transparent, #0d1117);
-      pointer-events: none;
-    }
+    .sql-preview::-webkit-scrollbar { width: 6px; }
+    .sql-preview::-webkit-scrollbar-track { background: #0d1117; }
+    .sql-preview::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    .sql-preview::-webkit-scrollbar-thumb:hover { background: #58a6ff; }
     .sql-alias { color: #ffa657; font-weight: 600; }
     .sidebar-tags .tag-badge { display: block; margin-bottom: 4px; padding: 4px 10px; }
     textarea.sql-editor {
