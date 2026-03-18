@@ -112,20 +112,42 @@ class Query(db.Model):
         return STATES.get(self.state_id)
 
 
+def init_db():
+    is_mysql = database_url.startswith("mysql")
+
+    # Create all tables defined in models (skips existing tables)
+    db.create_all()
+
+    with db.engine.connect() as conn:
+        # Migration: rename old 'sql' column to 'sql_query'
+        try:
+            if is_mysql:
+                conn.execute(db.text("ALTER TABLE `query` CHANGE `sql` sql_query TEXT NOT NULL"))
+            else:
+                conn.execute(db.text('ALTER TABLE "query" RENAME COLUMN sql TO sql_query'))
+            conn.commit()
+            print("INFO: Renamed column sql -> sql_query")
+        except Exception:
+            pass  # Already renamed or doesn't exist
+
+        # Migration: add state_id column if missing
+        try:
+            if is_mysql:
+                conn.execute(db.text("ALTER TABLE `query` ADD COLUMN state_id INTEGER"))
+            else:
+                conn.execute(db.text('ALTER TABLE "query" ADD COLUMN state_id INTEGER'))
+            conn.commit()
+            print("INFO: Added state_id column")
+        except Exception:
+            pass  # Already exists
+
+
 with app.app_context():
     try:
-        db.create_all()
+        init_db()
+        print("INFO: Database ready.")
     except Exception as e:
-        print(f"WARNING: db.create_all() failed: {e}")
-    try:
-        with db.engine.connect() as conn:
-            try:
-                conn.execute(db.text("ALTER TABLE query ADD COLUMN state_id INTEGER"))
-                conn.commit()
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"WARNING: migration check failed: {e}")
+        print(f"WARNING: DB init failed: {e}")
 
 
 @app.route("/health")
