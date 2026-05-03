@@ -1,29 +1,38 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+def utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from rapidfuzz import fuzz
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 
-ADMIN_USERNAME = "ssswapnil250"
-ADMIN_PASSWORD = "Sharvari123@"
+# ---------------------------------------------------------------------------
+# Users & roles
+# ---------------------------------------------------------------------------
+def _hash(pw):
+    return generate_password_hash(pw, method="pbkdf2:sha256")
 
+USERS = {
+    "ssswapnil250": {"password": _hash("Sharvari123@"), "role": "admin"},
+    "Rajvir":       {"password": _hash("Rajvir"),       "role": "viewer"},
+    "Smriti":       {"password": _hash("Smriti"),       "role": "viewer"},
+    "Prem":         {"password": _hash("Prem"),         "role": "viewer"},
+    "Balaji":       {"password": _hash("Balaji"),       "role": "viewer"},
+}
 
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
-            flash("Please log in to perform that action.", "warning")
-            return redirect(url_for("login", next=request.url))
-        return f(*args, **kwargs)
-    return decorated
+SESSION_TIMEOUT_MINUTES = 30
 
+# ---------------------------------------------------------------------------
+# App & DB setup
+# ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-prod")
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 
-# Use database from DATABASE_URL if set, else SQLite locally
 database_url = os.environ.get("DATABASE_URL", "sqlite:///queries.db")
-# Fix URL prefixes for SQLAlchemy compatibility
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 elif database_url.startswith("mysql://"):
@@ -34,51 +43,153 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+# ---------------------------------------------------------------------------
+# States
+# ---------------------------------------------------------------------------
 STATES = {
-    1: "Maharashtra",
-    2: "Delhi",
-    3: "Jharkhand",
-    4: "Haryana",
-    5: "Lakshadweep",
-    6: "Andaman & Nicobar Islands",
-    7: "Himachal Pradesh",
-    8: "UT-Chandigarh",
-    9: "Dadra & Nagar Haveli - Daman & Diu",
-    11: "Mizoram",
-    12: "Puducherry",
-    13: "Sikkim",
-    14: "Arunachal Pradesh",
-    15: "Rajasthan",
-    16: "J&K",
-    17: "Gujarat",
-    18: "Kerala",
-    19: "Tamil Nadu",
-    20: "Telangana",
-    21: "Uttarakhand",
-    22: "Bihar",
-    23: "Madhya Pradesh",
-    24: "Uttar Pradesh",
-    25: "Tripura",
-    26: "Assam",
-    27: "Chhattisgarh",
-    28: "Nagaland",
-    29: "Manipur",
-    30: "Meghalaya",
-    31: "Goa",
-    32: "Karnataka",
-    34: "Andhra Pradesh",
-    35: "Odisha",
-    36: "Punjab",
-    37: "Ladakh",
-    38: "West Bengal",
+    1: "Maharashtra", 2: "Delhi", 3: "Jharkhand", 4: "Haryana",
+    5: "Lakshadweep", 6: "Andaman & Nicobar Islands", 7: "Himachal Pradesh",
+    8: "UT-Chandigarh", 9: "Dadra & Nagar Haveli - Daman & Diu",
+    11: "Mizoram", 12: "Puducherry", 13: "Sikkim", 14: "Arunachal Pradesh",
+    15: "Rajasthan", 16: "J&K", 17: "Gujarat", 18: "Kerala",
+    19: "Tamil Nadu", 20: "Telangana", 21: "Uttarakhand", 22: "Bihar",
+    23: "Madhya Pradesh", 24: "Uttar Pradesh", 25: "Tripura", 26: "Assam",
+    27: "Chhattisgarh", 28: "Nagaland", 29: "Manipur", 30: "Meghalaya",
+    31: "Goa", 32: "Karnataka", 34: "Andhra Pradesh", 35: "Odisha",
+    36: "Punjab", 37: "Ladakh", 38: "West Bengal",
 }
-
-# Sorted list of (id, name) for templates
 STATES_LIST = sorted(STATES.items(), key=lambda x: x[1])
+STATES_LOWER = {v.lower(): k for k, v in STATES.items()}
 
 
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+class Query(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    sql_query = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, default="")
+    tags = db.Column(db.String(500), default="")
+    state_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    def tag_list(self):
+        if not self.tags:
+            return []
+        return [t.strip() for t in self.tags.split(",") if t.strip()]
+
+    def state_name(self):
+        return STATES.get(self.state_id)
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_log"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), nullable=False)
+    action = db.Column(db.String(100), nullable=False)
+    query_id = db.Column(db.Integer, nullable=True)
+    query_title = db.Column(db.String(200), nullable=True)
+    ip_address = db.Column(db.String(50), nullable=True)
+    timestamp = db.Column(db.DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# DB init & migrations
+# ---------------------------------------------------------------------------
+def init_db():
+    is_mysql = database_url.startswith("mysql")
+    db.create_all()
+    with db.engine.connect() as conn:
+        for sql in [
+            ('ALTER TABLE `query` CHANGE `sql` sql_query TEXT NOT NULL' if is_mysql
+             else 'ALTER TABLE "query" RENAME COLUMN sql TO sql_query'),
+            ('ALTER TABLE `query` ADD COLUMN state_id INTEGER' if is_mysql
+             else 'ALTER TABLE "query" ADD COLUMN state_id INTEGER'),
+        ]:
+            try:
+                conn.execute(db.text(sql))
+                conn.commit()
+            except Exception:
+                pass
+
+
+with app.app_context():
+    try:
+        init_db()
+        print("INFO: Database ready.")
+    except Exception as e:
+        print(f"WARNING: DB init failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+def log_action(action, query_id=None, query_title=None):
+    try:
+        entry = AuditLog(
+            username=session.get("username", "unknown"),
+            action=action,
+            query_id=query_id,
+            query_title=query_title,
+            ip_address=request.remote_addr,
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception:
+        pass
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("username"):
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("login", next=request.url))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("username"):
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for("login", next=request.url))
+        if session.get("role") != "admin":
+            flash("Admin access required.", "danger")
+            return redirect(url_for("index"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.before_request
+def enforce_login_and_timeout():
+    public_endpoints = {"login", "health", "static"}
+    if request.endpoint in public_endpoints:
+        return
+
+    if not session.get("username"):
+        return redirect(url_for("login", next=request.url))
+
+    # 30-min inactivity timeout
+    last_active = session.get("last_active")
+    if last_active:
+        elapsed = (utcnow() - datetime.fromisoformat(last_active)).total_seconds()
+        if elapsed > SESSION_TIMEOUT_MINUTES * 60:
+            username = session.get("username")
+            session.clear()
+            log_action("session_timeout")
+            flash("Session expired after 30 minutes of inactivity. Please log in again.", "warning")
+            return redirect(url_for("login"))
+    session["last_active"] = utcnow().isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy helpers
+# ---------------------------------------------------------------------------
 def fuzzy_state_match(text, state_name, threshold=78):
-    """Return True if any word in text is a fuzzy match for any word in state_name."""
     if not text or not state_name:
         return False
     text_words = text.lower().split()
@@ -93,79 +204,37 @@ def fuzzy_state_match(text, state_name, threshold=78):
     return False
 
 
-class Query(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    sql_query = db.Column(db.Text, nullable=False)
-    description = db.Column(db.Text, default="")
-    tags = db.Column(db.String(500), default="")
-    state_id = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    def tag_list(self):
-        if not self.tags:
-            return []
-        return [t.strip() for t in self.tags.split(",") if t.strip()]
-
-    def state_name(self):
-        return STATES.get(self.state_id)
+def resolve_state_id(text):
+    if not text:
+        return None
+    exact = STATES_LOWER.get(text.lower())
+    if exact:
+        return exact
+    best_score, best_id = 0, None
+    for name, sid in STATES_LOWER.items():
+        score = fuzz.ratio(text.lower(), name)
+        if score > best_score:
+            best_score, best_id = score, sid
+    return best_id if best_score >= 78 else None
 
 
-def init_db():
-    is_mysql = database_url.startswith("mysql")
-
-    # Create all tables defined in models (skips existing tables)
-    db.create_all()
-
-    with db.engine.connect() as conn:
-        # Migration: rename old 'sql' column to 'sql_query'
-        try:
-            if is_mysql:
-                conn.execute(db.text("ALTER TABLE `query` CHANGE `sql` sql_query TEXT NOT NULL"))
-            else:
-                conn.execute(db.text('ALTER TABLE "query" RENAME COLUMN sql TO sql_query'))
-            conn.commit()
-            print("INFO: Renamed column sql -> sql_query")
-        except Exception:
-            pass  # Already renamed or doesn't exist
-
-        # Migration: add state_id column if missing
-        try:
-            if is_mysql:
-                conn.execute(db.text("ALTER TABLE `query` ADD COLUMN state_id INTEGER"))
-            else:
-                conn.execute(db.text('ALTER TABLE "query" ADD COLUMN state_id INTEGER'))
-            conn.commit()
-            print("INFO: Added state_id column")
-        except Exception:
-            pass  # Already exists
+def detect_state_in_title(title):
+    words = title.split()
+    for n in range(4, 0, -1):
+        for i in range(len(words) - n + 1):
+            phrase = " ".join(words[i:i + n])
+            sid = resolve_state_id(phrase)
+            if sid:
+                return sid
+    return None
 
 
-with app.app_context():
-    try:
-        init_db()
-        print("INFO: Database ready.")
-    except Exception as e:
-        print(f"WARNING: DB init failed: {e}")
-
-
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 @app.route("/health")
 def health():
     return "OK", 200
-
-
-@app.route("/db-check")
-def db_check():
-    try:
-        with db.engine.connect() as conn:
-            result = conn.execute(db.text(
-                "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='query' ORDER BY ordinal_position"
-            ))
-            cols = [f"{r[0]} ({r[1]})" for r in result]
-        return "<br>".join(cols) or "No columns found", 200
-    except Exception as e:
-        return str(e), 500
 
 
 @app.route("/")
@@ -180,14 +249,12 @@ def index():
 
     if search:
         like = f"%{search}%"
-        query = query.filter(
-            db.or_(
-                Query.title.ilike(like),
-                Query.sql_query.ilike(like),
-                Query.description.ilike(like),
-                Query.tags.ilike(like),
-            )
-        )
+        query = query.filter(db.or_(
+            Query.title.ilike(like),
+            Query.sql_query.ilike(like),
+            Query.description.ilike(like),
+            Query.tags.ilike(like),
+        ))
 
     if tag:
         query = query.filter(Query.tags.ilike(f"%{tag}%"))
@@ -214,8 +281,7 @@ def index():
         candidates = query.order_by(Query.created_at.desc()).all()
         filtered = [
             q for q in candidates
-            if q.state_id == sid
-            or fuzzy_state_match(
+            if q.state_id == sid or fuzzy_state_match(
                 " ".join(filter(None, [q.title, q.description, q.tags])),
                 state_name_str,
             )
@@ -230,13 +296,7 @@ def index():
         total = pagination.total
         total_pages = pagination.pages
 
-    # Collect all unique tags for the sidebar
-    all_queries = Query.query.all()
-    all_tags = set()
-    for q in all_queries:
-        for t in q.tag_list():
-            all_tags.add(t)
-    all_tags = sorted(all_tags)
+    all_tags = sorted({t for q in Query.query.all() for t in q.tag_list()})
 
     return render_template(
         "index.html",
@@ -273,6 +333,7 @@ def add():
             q = Query(title=title, sql_query=sql_query, description=description, tags=tags, state_id=state_id)
             db.session.add(q)
             db.session.commit()
+            log_action("add_query", query_id=q.id, query_title=q.title)
             flash("Query saved successfully!", "success")
             return redirect(url_for("view", id=q.id))
         except Exception as e:
@@ -286,14 +347,14 @@ def add():
 @app.route("/view/<int:id>")
 def view(id):
     q = Query.query.get_or_404(id)
+    log_action("view_query", query_id=q.id, query_title=q.title)
     return render_template("view.html", q=q, states=STATES_LIST)
 
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
-@login_required
+@admin_required
 def edit(id):
     q = Query.query.get_or_404(id)
-
     if request.method == "POST":
         q.title = request.form.get("title", "").strip()
         q.sql_query = request.form.get("sql_query", "").strip()
@@ -301,77 +362,67 @@ def edit(id):
         q.tags = request.form.get("tags", "").strip()
         state_id = request.form.get("state_id") or None
         q.state_id = int(state_id) if state_id else None
-        q.updated_at = datetime.utcnow()
+        q.updated_at = utcnow()
 
         if not q.title or not q.sql_query:
             flash("Title and SQL are required.", "danger")
             return render_template("add.html", form=request.form, edit=True, id=id, states=STATES_LIST)
 
         db.session.commit()
+        log_action("edit_query", query_id=q.id, query_title=q.title)
         flash("Query updated!", "success")
         return redirect(url_for("view", id=q.id))
 
     return render_template("add.html", form={
-        "title": q.title,
-        "sql_query": q.sql_query,
-        "description": q.description,
-        "tags": q.tags,
-        "state_id": q.state_id,
+        "title": q.title, "sql_query": q.sql_query,
+        "description": q.description, "tags": q.tags, "state_id": q.state_id,
     }, edit=True, id=id, states=STATES_LIST)
 
 
 @app.route("/delete/<int:id>", methods=["POST"])
-@login_required
+@admin_required
 def delete(id):
     q = Query.query.get_or_404(id)
+    log_action("delete_query", query_id=q.id, query_title=q.title)
     db.session.delete(q)
     db.session.commit()
     flash("Query deleted.", "warning")
     return redirect(url_for("index"))
 
 
-# Reverse lookup: lowercase state name -> state_id
-STATES_LOWER = {v.lower(): k for k, v in STATES.items()}
+# ---------------------------------------------------------------------------
+# API: serve SQL securely (not in page source)
+# ---------------------------------------------------------------------------
+@app.route("/api/sql/<int:id>")
+def api_sql(id):
+    q = Query.query.get_or_404(id)
+    return jsonify({"sql": q.sql_query})
 
 
-def resolve_state_id(text):
-    """Return state_id by exact then fuzzy match against text, or None."""
-    if not text:
-        return None
-    exact = STATES_LOWER.get(text.lower())
-    if exact:
-        return exact
-    best_score, best_id = 0, None
-    for name, sid in STATES_LOWER.items():
-        score = fuzz.ratio(text.lower(), name)
-        if score > best_score:
-            best_score, best_id = score, sid
-    return best_id if best_score >= 78 else None
+@app.route("/api/copy/<int:id>")
+def api_copy(id):
+    q = Query.query.get_or_404(id)
+    log_action("copy_sql", query_id=q.id, query_title=q.title)
+    return jsonify({"sql": q.sql_query})
 
 
-def detect_state_in_title(title):
-    """Scan each word/phrase in title for a fuzzy state name match."""
-    words = title.split()
-    # try progressively longer n-grams (up to 4 words) to catch "West Bengal" etc.
-    for n in range(4, 0, -1):
-        for i in range(len(words) - n + 1):
-            phrase = " ".join(words[i:i + n])
-            sid = resolve_state_id(phrase)
-            if sid:
-                return sid
-    return None
+# ---------------------------------------------------------------------------
+# Audit log (admin only)
+# ---------------------------------------------------------------------------
+@app.route("/audit")
+@admin_required
+def audit():
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
+    return render_template("audit.html", logs=logs)
 
 
+# ---------------------------------------------------------------------------
+# Import (admin only)
+# ---------------------------------------------------------------------------
 def parse_comment_format(text):
-    """
-    Parse files where each query starts with a '--' comment line as the title,
-    followed immediately by the SQL body. Multiple queries are separated by the
-    next '--' comment line.
-    """
     lines = text.splitlines()
-    blocks = []   # list of (title_line_index, [lines])
+    blocks = []
     current = None
-
     for line in lines:
         stripped = line.strip()
         if stripped.startswith("--"):
@@ -380,7 +431,6 @@ def parse_comment_format(text):
             current = {"title_raw": stripped[2:].strip(), "sql_lines": []}
         elif current is not None:
             current["sql_lines"].append(line)
-
     if current is not None:
         blocks.append(current)
 
@@ -388,34 +438,23 @@ def parse_comment_format(text):
     for i, block in enumerate(blocks, start=1):
         title = block["title_raw"]
         sql = "\n".join(block["sql_lines"]).strip()
-
         if not title:
             errors.append((i, "Empty comment line used as title"))
             continue
         if not sql:
             errors.append((i, f'"{title}" — no SQL found after comment'))
             continue
-
         state_id = detect_state_in_title(title)
         rows.append({"title": title, "sql_query": sql, "description": "", "tags": "", "state_id": state_id})
-
     return rows, errors
 
 
 def parse_block_format(text):
-    """
-    Parse files where blocks are separated by '---' and use 'Key: value' metadata
-    followed by 'SQL:' and the query body.
-    """
     blocks = [b.strip() for b in text.split("---") if b.strip()]
     rows, errors = [], []
-
     for i, block in enumerate(blocks, start=1):
         lines = block.splitlines()
-        meta = {}
-        sql_lines = []
-        in_sql = False
-
+        meta, sql_lines, in_sql = {}, [], False
         for line in lines:
             if in_sql:
                 sql_lines.append(line)
@@ -424,78 +463,67 @@ def parse_block_format(text):
                 rest = line[4:].strip()
                 if rest:
                     sql_lines.append(rest)
-            else:
-                if ":" in line:
-                    key, _, val = line.partition(":")
-                    meta[key.strip().lower()] = val.strip()
-
+            elif ":" in line:
+                key, _, val = line.partition(":")
+                meta[key.strip().lower()] = val.strip()
         title = meta.get("title", "").strip()
         sql = "\n".join(sql_lines).strip()
-
         if not title:
             errors.append((i, "Missing Title"))
             continue
         if not sql:
             errors.append((i, f'"{title}" — missing SQL'))
             continue
-
         state_id = resolve_state_id(meta.get("state", "").strip()) or detect_state_in_title(title)
-
-        rows.append({
-            "title": title,
-            "sql_query": sql,
-            "description": meta.get("description", ""),
-            "tags": meta.get("tags", ""),
-            "state_id": state_id,
-        })
-
+        rows.append({"title": title, "sql_query": sql, "description": meta.get("description", ""),
+                     "tags": meta.get("tags", ""), "state_id": state_id})
     return rows, errors
 
 
 def parse_import_file(text):
-    """Auto-detect format and parse accordingly."""
-    # If any non-comment line contains 'Title:' it's the block format
-    has_title_key = any(
-        l.strip().lower().startswith("title:") for l in text.splitlines()
-    )
+    has_title_key = any(l.strip().lower().startswith("title:") for l in text.splitlines())
     if has_title_key:
         return parse_block_format(text)
     return parse_comment_format(text)
 
 
 @app.route("/import", methods=["GET", "POST"])
+@admin_required
 def import_queries():
     if request.method == "POST":
         f = request.files.get("file")
         if not f or not f.filename.endswith(".txt"):
             flash("Please upload a .txt file.", "danger")
             return render_template("import.html")
-
         text = f.read().decode("utf-8", errors="replace")
         rows, errors = parse_import_file(text)
-
         for row in rows:
             db.session.add(Query(**row))
         if rows:
             db.session.commit()
-
-        if errors:
-            for block_num, reason in errors:
-                flash(f"Block {block_num} skipped: {reason}", "warning")
-
+            log_action("import_queries", query_title=f"{len(rows)} queries imported")
+        for block_num, reason in errors:
+            flash(f"Block {block_num} skipped: {reason}", "warning")
         flash(f"Imported {len(rows)} quer{'y' if len(rows)==1 else 'ies'} successfully.", "success")
         return redirect(url_for("index"))
-
     return render_template("import.html")
 
 
+# ---------------------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session["logged_in"] = True
+        user = USERS.get(username)
+        if user and check_password_hash(user["password"], password):
+            session.permanent = True
+            session["username"] = username
+            session["role"] = user["role"]
+            session["last_active"] = utcnow().isoformat()
+            log_action("login")
             next_url = request.args.get("next") or url_for("index")
             return redirect(next_url)
         flash("Invalid username or password.", "danger")
@@ -504,10 +532,21 @@ def login():
 
 @app.route("/logout")
 def logout():
+    log_action("logout")
     session.clear()
-    return redirect(url_for("index"))
+    return redirect(url_for("login"))
 
 
 if __name__ == "__main__":
+    import subprocess, threading
     port = int(os.environ.get("PORT", 5001))
+
+    def start_ngrok():
+        subprocess.Popen(
+            ["ngrok", "http", "--url=singular-clobber-blighted.ngrok-free.dev", str(port)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        print(f" * Public URL: https://singular-clobber-blighted.ngrok-free.dev")
+
+    threading.Thread(target=start_ngrok, daemon=True).start()
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Audit Log – SQL Vault{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  <h5 class="mb-0 ms-2"><i class="bi bi-journal-text me-2 text-info"></i>Audit Log</h5>
+  <span class="meta-text ms-2">(last 500 entries)</span>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-dark table-hover table-sm mb-0" style="font-size:0.82rem;">
+      <thead style="background:#0d1117; color:#8b949e; border-bottom:1px solid #30363d;">
+        <tr>
+          <th class="px-3 py-2">Time</th>
+          <th class="px-3 py-2">User</th>
+          <th class="px-3 py-2">Action</th>
+          <th class="px-3 py-2">Query</th>
+          <th class="px-3 py-2">IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="px-3 py-2 text-nowrap" style="color:#8b949e;">
+            {{ log.timestamp.strftime('%d %b %Y %H:%M:%S') }}
+          </td>
+          <td class="px-3 py-2 fw-semibold" style="color:#79c0ff;">{{ log.username }}</td>
+          <td class="px-3 py-2">
+            {% if log.action == 'login' %}
+              <span class="badge bg-success">login</span>
+            {% elif log.action == 'logout' %}
+              <span class="badge bg-secondary">logout</span>
+            {% elif log.action == 'session_timeout' %}
+              <span class="badge bg-warning text-dark">timeout</span>
+            {% elif log.action == 'copy_sql' %}
+              <span class="badge bg-info text-dark">copy SQL</span>
+            {% elif log.action == 'view_query' %}
+              <span class="badge" style="background:#1f6feb44; color:#79c0ff; border:1px solid #1f6feb55;">view</span>
+            {% elif log.action == 'add_query' %}
+              <span class="badge bg-primary">add</span>
+            {% elif log.action == 'edit_query' %}
+              <span class="badge bg-warning text-dark">edit</span>
+            {% elif log.action == 'delete_query' %}
+              <span class="badge bg-danger">delete</span>
+            {% elif log.action == 'import_queries' %}
+              <span class="badge bg-purple" style="background:#7c3aed;">import</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ log.action }}</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2" style="color:#c9d1d9; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            {% if log.query_id %}
+            <a href="{{ url_for('view', id=log.query_id) }}" class="text-decoration-none" style="color:#c9d1d9;">
+              {{ log.query_title or '—' }}
+            </a>
+            {% else %}
+              {{ log.query_title or '—' }}
+            {% endif %}
+          </td>
+          <td class="px-3 py-2" style="color:#8b949e; font-family:monospace;">{{ log.ip_address or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-center py-4" style="color:#8b949e;">No audit logs yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

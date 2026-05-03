@@ -100,7 +100,7 @@
             <div class="meta-text mb-2">{{ q.description[:120] }}{% if q.description|length > 120 %}…{% endif %}</div>
             {% endif %}
 
-            <div class="sql-preview">{{ q.sql_query[:3000] }}{% if q.sql_query|length > 3000 %}…{% endif %}</div>
+            <div class="sql-preview" data-qid="{{ q.id }}"><span class="text-muted" style="font-size:0.75rem;">Loading…</span></div>
 
             <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
               {% if q.state_name() %}
@@ -118,13 +118,13 @@
             <a href="{{ url_for('view', id=q.id) }}" class="btn btn-sm btn-outline-info">
               <i class="bi bi-eye me-1"></i>View
             </a>
-            {% if session.get('logged_in') %}
+            {% if session.get('role') == 'admin' %}
             <a href="{{ url_for('edit', id=q.id) }}" class="btn btn-sm btn-outline-secondary">
               <i class="bi bi-pencil me-1"></i>Edit
             </a>
             {% endif %}
             <button class="btn btn-sm btn-outline-secondary btn-copy ms-auto"
-                    onclick="copyToClipboard({{ q.sql_query | tojson }}, this)">
+                    data-copy-id="{{ q.id }}">
               <i class="bi bi-clipboard me-1"></i>Copy SQL
             </button>
           </div>
@@ -173,4 +173,33 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.sql-preview[data-qid]').forEach(el => {
+  fetch('/api/sql/' + el.dataset.qid)
+    .then(r => r.json())
+    .then(data => {
+      const preview = data.sql.length > 3000 ? data.sql.slice(0, 3000) + '…' : data.sql;
+      el.textContent = preview;
+      el.innerHTML = el.innerHTML.replace(/\b(as)\s+(\w+)/gi, '<span class="sql-alias">as $2</span>');
+    })
+    .catch(() => { el.textContent = '[error loading SQL]'; });
+});
+
+document.querySelectorAll('[data-copy-id]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    fetch('/api/copy/' + btn.dataset.copyId)
+      .then(r => r.json())
+      .then(data => {
+        navigator.clipboard.writeText(data.sql).then(() => {
+          const orig = btn.innerHTML;
+          btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+          setTimeout(() => btn.innerHTML = orig, 1800);
+        });
+      });
+  });
+});
+</script>
 {% endblock %}

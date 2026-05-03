@@ -9,7 +9,7 @@
       <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Back
       </a>
-      {% if session.get('logged_in') %}
+      {% if session.get('role') == 'admin' %}
       <a href="{{ url_for('edit', id=q.id) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-pencil me-1"></i>Edit
       </a>
@@ -56,16 +56,41 @@
       <div class="card-header d-flex align-items-center justify-content-between"
            style="background:#0d1117; border-bottom:1px solid #30363d;">
         <span class="meta-text"><i class="bi bi-code-slash me-1"></i>SQL</span>
-        <button class="btn btn-sm btn-outline-info btn-copy"
-                onclick="copyToClipboard({{ q.sql_query | tojson }}, this)">
+        <button class="btn btn-sm btn-outline-info btn-copy" data-copy-id="{{ q.id }}">
           <i class="bi bi-clipboard me-1"></i>Copy
         </button>
       </div>
       <div class="card-body p-0">
-        <pre class="m-0"><code class="language-sql">{{ q.sql_query }}</code></pre>
+        <pre class="m-0"><code class="language-sql" id="sql-content" data-qid="{{ q.id }}">Loading…</code></pre>
       </div>
     </div>
 
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const codeEl = document.getElementById('sql-content');
+const qid = codeEl.dataset.qid;
+
+fetch('/api/sql/' + qid)
+  .then(r => r.json())
+  .then(data => {
+    codeEl.textContent = data.sql;
+    hljs.highlightElement(codeEl);
+  });
+
+document.querySelector('[data-copy-id]').addEventListener('click', function() {
+  fetch('/api/copy/' + this.dataset.copyId)
+    .then(r => r.json())
+    .then(data => {
+      navigator.clipboard.writeText(data.sql).then(() => {
+        const orig = this.innerHTML;
+        this.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+        setTimeout(() => this.innerHTML = orig, 1800);
+      });
+    });
+});
+</script>
 {% endblock %}
